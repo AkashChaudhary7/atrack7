@@ -5,13 +5,6 @@ import {
   SecurePassword, SecureDocument, DailyInsight, UserState, PersonalID, AssetAccount,
   Goal, Milestone
 } from "./types";
-import { db, auth, handleFirestoreError, OperationType, updateFirebaseConfigAtRuntime } from "./firebase";
-import { 
-  onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser 
-} from "firebase/auth";
-import { 
-  doc, setDoc, deleteDoc, getDocs, collection 
-} from "firebase/firestore";
 
 interface AppContextType {
   userState: UserState;
@@ -93,14 +86,6 @@ interface AppContextType {
 
   exportData: () => string;
   importData: (jsonStr: string) => boolean;
-
-  // Firebase Synchronization parameters
-  firebaseUser: FirebaseUser | null;
-  isSyncing: boolean;
-  signInWithCloud: () => Promise<FirebaseUser>;
-  signOutFirebase: () => Promise<void>;
-  updateConfig: (config: any | null) => void;
-  activeConfigName: string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -143,25 +128,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
 
-  // Firebase Status states
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
-
-  // Google OAuth Drive Token removed
-
-  const activeConfigName = localStorage.getItem("atrack_custom_firebase_config") ? "Custom User Account" : "Default App Partition";
-
   // Init local storage fallback states initially
   useEffect(() => {
     const localUser = localStorage.getItem("atrack_user");
     if (localUser) setUserState(JSON.parse(localUser));
 
-    if (!auth.currentUser) {
-      const getLocal = <T,>(key: string, fallback: T): T => {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : fallback;
-      };
+    const getLocal = <T,>(key: string, fallback: T): T => {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : fallback;
+    };
 
       setExpenses(getLocal("atrack_expenses", [
         { id: "e1", amount: 15.5, category: "Food", description: "Lunch meal", date: "2026-06-10" },
@@ -216,9 +191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         { id: "p1", title: "Main Bank Account", username: "ryan_track", passwordEncrypted: "8e9ef9a1e0b5c1", url: "https://securebanking.com", category: "Financial" }
       ]));
 
-      setDocuments(getLocal("atrack_documents", [
-        { id: "doc1", profileId: "Self", title: "Driver License", fileName: "license.png", uploadedAt: "2026-06-08", fileDataEncrypted: "MOCK_ENCRYPTED_DATA_LICENSE" }
-      ]));
+      setDocuments([]);
 
       setPersonalIDs(getLocal("atrack_personalids", [
         { id: "pid_1", idType: "Passport", idNumber: "Z1234567", nameOnID: "Akash Chaudhary", notes: "Main Travel Document" },
@@ -238,7 +211,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setGoals(getLocal("atrack_goals", []));
 
       setInsights(getLocal("atrack_insights", insights));
-    }
   }, []);
 
   // Sync to local storage for quick fallback
@@ -247,236 +219,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [userState]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_expenses", JSON.stringify(expenses));
-  }, [expenses, firebaseUser]);
+    localStorage.setItem("atrack_expenses", JSON.stringify(expenses));
+  }, [expenses]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_bills", JSON.stringify(bills));
-  }, [bills, firebaseUser]);
+    localStorage.setItem("atrack_bills", JSON.stringify(bills));
+  }, [bills]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_habits", JSON.stringify(habits));
-  }, [habits, firebaseUser]);
+    localStorage.setItem("atrack_habits", JSON.stringify(habits));
+  }, [habits]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_intimacy", JSON.stringify(intimacyLogs));
-  }, [intimacyLogs, firebaseUser]);
+    localStorage.setItem("atrack_intimacy", JSON.stringify(intimacyLogs));
+  }, [intimacyLogs]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_jerkoff", JSON.stringify(jerkOffLogs));
-  }, [jerkOffLogs, firebaseUser]);
+    localStorage.setItem("atrack_jerkoff", JSON.stringify(jerkOffLogs));
+  }, [jerkOffLogs]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_medicines", JSON.stringify(medicines));
-  }, [medicines, firebaseUser]);
+    localStorage.setItem("atrack_medicines", JSON.stringify(medicines));
+  }, [medicines]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_weight", JSON.stringify(weightRecords));
-  }, [weightRecords, firebaseUser]);
+    localStorage.setItem("atrack_weight", JSON.stringify(weightRecords));
+  }, [weightRecords]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_workouts", JSON.stringify(workouts));
-  }, [workouts, firebaseUser]);
+    localStorage.setItem("atrack_workouts", JSON.stringify(workouts));
+  }, [workouts]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_tasks", JSON.stringify(tasks));
-  }, [tasks, firebaseUser]);
+    localStorage.setItem("atrack_tasks", JSON.stringify(tasks));
+  }, [tasks]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_study", JSON.stringify(studySessions));
-  }, [studySessions, firebaseUser]);
+    localStorage.setItem("atrack_study", JSON.stringify(studySessions));
+  }, [studySessions]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_passwords", JSON.stringify(passwords));
-  }, [passwords, firebaseUser]);
+    localStorage.setItem("atrack_passwords", JSON.stringify(passwords));
+  }, [passwords]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_documents", JSON.stringify(documents));
-  }, [documents, firebaseUser]);
+    localStorage.setItem("atrack_personalids", JSON.stringify(personalIDs));
+  }, [personalIDs]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_personalids", JSON.stringify(personalIDs));
-  }, [personalIDs, firebaseUser]);
+    localStorage.setItem("atrack_asset_accounts", JSON.stringify(assetAccounts));
+  }, [assetAccounts]);
 
   useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_asset_accounts", JSON.stringify(assetAccounts));
-  }, [assetAccounts, firebaseUser]);
+    localStorage.setItem("atrack_goals", JSON.stringify(goals));
+  }, [goals]);
 
-  useEffect(() => {
-    if (!firebaseUser) localStorage.setItem("atrack_goals", JSON.stringify(goals));
-  }, [goals, firebaseUser]);
-
-  // Silent anonymous authentication to always back up with Firestore
-  useEffect(() => {
-    const triggerSilentLogin = async () => {
-      if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (err) {
-          console.error("Silent Firestore auto-login failed:", err);
-        }
-      }
-    };
-    triggerSilentLogin();
-  }, []);
-
-  // Firebase auth state change listener and Firestore synchronization pulls
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
-      if (user) {
-        setIsSyncing(true);
-        try {
-          // 1. Write the root user state
-          try {
-            await setDoc(doc(db, "users", user.uid), {
-              userId: user.uid,
-              email: "Anonymous Local User",
-              createdAt: new Date().toISOString(),
-              currentProfile: userState.currentProfile
-            }, { merge: true });
-          } catch (err) {
-            handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
-          }
-
-          // Helper to set state and sync up if Firestore is empty but memory has local data
-          const handleSyncCollection = async <T extends { id: string }>(
-            colName: string,
-            remoteItems: T[],
-            localItems: T[],
-            setState: React.Dispatch<React.SetStateAction<T[]>>
-          ) => {
-            if (remoteItems.length > 0) {
-              setState(remoteItems);
-            } else if (localItems.length > 0) {
-              // Upload existing local items to Firestore
-              for (const item of localItems) {
-                try {
-                  await setDoc(doc(db, "users", user.uid, colName, item.id), {
-                    ...item,
-                    userId: user.uid,
-                    profileId: userState.currentProfile
-                  });
-                } catch (err) {
-                  handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/${colName}/${item.id}`);
-                }
-              }
-            }
-          };
-
-          // 2. Fetch all subcollections in parallel
-          const fetchSubcol = async (colName: string): Promise<any[]> => {
-            try {
-              const snap = await getDocs(collection(db, "users", user.uid, colName));
-              return snap.docs.map(d => d.data());
-            } catch (err) {
-              handleFirestoreError(err, OperationType.GET, `users/${user.uid}/${colName}`);
-              throw err;
-            }
-          };
-
-          const [
-            finExpenses, finBills, finHabits, finIntLogs, finJerkLogs,
-            finMeds, finWeights, finWorkouts, finTasks, finStudies,
-            finPasses, finDocs, finPersonalIDs, finAssetAccounts, finGoals
-          ] = await Promise.all([
-            fetchSubcol("expenses"),
-            fetchSubcol("bills"),
-            fetchSubcol("habits"),
-            fetchSubcol("intimacyLogs"),
-            fetchSubcol("jerkOffLogs"),
-            fetchSubcol("medicines"),
-            fetchSubcol("weightRecords"),
-            fetchSubcol("workouts"),
-            fetchSubcol("tasks"),
-            fetchSubcol("studySessions"),
-            fetchSubcol("passwords"),
-            fetchSubcol("documents"),
-            fetchSubcol("personalIDs"),
-            fetchSubcol("assetAccounts"),
-            fetchSubcol("goals")
-          ]);
-
-          // Set synced states
-          await handleSyncCollection("expenses", finExpenses, expenses, setExpenses);
-          await handleSyncCollection("bills", finBills, bills, setBills);
-          await handleSyncCollection("habits", finHabits, habits, setHabits);
-          await handleSyncCollection("intimacyLogs", finIntLogs, intimacyLogs, setIntimacyLogs);
-          await handleSyncCollection("jerkOffLogs", finJerkLogs, jerkOffLogs, setJerkOffLogs);
-          await handleSyncCollection("medicines", finMeds, medicines, setMedicines);
-          await handleSyncCollection("weightRecords", finWeights, weightRecords, setWeightRecords);
-          await handleSyncCollection("workouts", finWorkouts, workouts, setWorkouts);
-          await handleSyncCollection("tasks", finTasks, tasks, setTasks);
-          await handleSyncCollection("studySessions", finStudies, studySessions, setStudySessions);
-          await handleSyncCollection("passwords", finPasses, passwords, setPasswords);
-          await handleSyncCollection("documents", finDocs, documents, setDocuments);
-          await handleSyncCollection("personalIDs", finPersonalIDs, personalIDs, setPersonalIDs);
-          await handleSyncCollection("goals", finGoals, goals, setGoals);
-
-          let resolvedAssetAccounts = finAssetAccounts;
-          if (finAssetAccounts.length === 0) {
-            const defaults = assetAccounts.length > 0 ? assetAccounts : [
-              { id: "aa_hdfc", name: "HDFC Savings Account", type: "liquid", category: "Savings Account", balance: 35000, updatedAt: new Date().toISOString().split("T")[0] },
-              { id: "aa_cash", name: "Hand Cash", type: "liquid", category: "Cash", balance: 5000, updatedAt: new Date().toISOString().split("T")[0] },
-              { id: "aa_stocks", name: "Zerodha Stocks", type: "fixed", category: "Stocks", balance: 120000, updatedAt: new Date().toISOString().split("T")[0] },
-              { id: "aa_mf", name: "Groww Mutual Funds", type: "fixed", category: "Mutual Fund", balance: 85000, updatedAt: new Date().toISOString().split("T")[0] },
-              { id: "aa_fd", name: "SBI Fixed Deposit", type: "fixed", category: "Fixed Deposit", balance: 50000, updatedAt: new Date().toISOString().split("T")[0] },
-              { id: "aa_bonds", name: "Govt Bonds", type: "fixed", category: "Bonds", balance: 25000, updatedAt: new Date().toISOString().split("T")[0] },
-              { id: "aa_loan", name: "Personal Loan to Amit", type: "fixed", category: "Loan Given", balance: 10000, updatedAt: new Date().toISOString().split("T")[0] }
-            ];
-            for (const acc of defaults) {
-              try {
-                await setDoc(doc(db, "users", user.uid, "assetAccounts", acc.id), {
-                  ...acc,
-                  userId: user.uid,
-                  profileId: userState.currentProfile
-                });
-              } catch (err) {
-                handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}/assetAccounts/${acc.id}`);
-              }
-            }
-            resolvedAssetAccounts = defaults;
-          }
-          if (resolvedAssetAccounts.length > 0) setAssetAccounts(resolvedAssetAccounts as any);
-
-        } catch (err) {
-          console.error("Cloud data recovery failed:", err);
-        } finally {
-          setIsSyncing(false);
-          setIsInitialLoadDone(true);
-        }
-      } else {
-        setIsInitialLoadDone(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [firebaseUser]);
-
-  // Firestore atomic sync helpers
-  const saveToFirestore = async (colName: string, id: string, payload: any) => {
-    if (auth.currentUser) {
-      try {
-        await setDoc(doc(db, "users", auth.currentUser.uid, colName, id), {
-          ...payload,
-          userId: auth.currentUser.uid,
-          profileId: userState.currentProfile
-        });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `users/${auth.currentUser.uid}/${colName}/${id}`);
-      }
-    }
-  };
-
-  const removeFromFirestore = async (colName: string, id: string) => {
-    if (auth.currentUser) {
-      try {
-        await deleteDoc(doc(db, "users", auth.currentUser.uid, colName, id));
-      } catch (err) {
-        handleFirestoreError(err, OperationType.DELETE, `users/${auth.currentUser.uid}/${colName}/${id}`);
-      }
-    }
-  };
+  // Local-only persistence helper stubs
+  const saveToFirestore = async (colName: string, id: string, payload: any) => {};
+  const removeFromFirestore = async (colName: string, id: string) => {};
 
   // Auth Operations
   const authenticate = (password: string): boolean => {
@@ -858,7 +658,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newGoal: Goal = { 
       ...goalBase, 
       id: "goal_" + Date.now().toString(),
-      userId: firebaseUser ? firebaseUser.uid : undefined,
+      userId: "default_app_user",
       profileId: userState.currentProfile,
       createdAt: now,
       updatedAt: now
@@ -1001,30 +801,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Cloud Login handler
-  const signInWithCloud = async () => {
-    try {
-      const result = await signInAnonymously(auth);
-      return result.user;
-    } catch (err) {
-      console.error("Cloud anonymous sign-in error:", err);
-      throw err;
-    }
-  };
-
-  const signOutFirebase = async () => {
-    try {
-      await signOut(auth);
-      setFirebaseUser(null);
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
-  };
-
-  const updateConfig = (config: any | null) => {
-    updateFirebaseConfigAtRuntime(config);
-  };
-
   return (
     <AppContext.Provider value={{
       userState, authenticate, toggleBiometric, lockApp, switchProfile, addProfile,
@@ -1044,9 +820,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       assetAccounts, addAssetAccount, updateAssetAccount, deleteAssetAccount, updateAssetBalance,
       goals, addGoal, updateGoal, deleteGoal,
       insights, isLoadingInsights, fetchInsights,
-      exportData, importData,
-      // Firebase properties
-      firebaseUser, isSyncing, signInWithCloud, signOutFirebase, updateConfig, activeConfigName
+      exportData, importData
     }}>
       {children}
     </AppContext.Provider>

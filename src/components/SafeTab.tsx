@@ -12,12 +12,10 @@ export const SafeTab: React.FC = () => {
     passwords, addPassword, deletePassword, 
     documents, addDocument, deleteDocument,
     personalIDs, addPersonalID, deletePersonalID,
-    exportData, importData,
-    // Firebase states
-    firebaseUser, isSyncing
+    exportData, importData
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<"passwords" | "ids" | "documents" | "sync">("passwords");
+  const [activeTab, setActiveTab] = useState<"passwords" | "ids" | "documents">("passwords");
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedID, setCopiedID] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<SecureDocument | null>(null);
@@ -223,16 +221,12 @@ export const SafeTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Firebase Authentication & Cloud Sync Pill */}
+        {/* Local Security Vault Pill */}
         <div className="flex justify-end relative">
           <div className="flex flex-col items-end">
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold ${
-              isSyncing 
-                ? "bg-cyan-50 text-cyan-600 border-cyan-100 animate-pulse" 
-                : "bg-emerald-50 text-emerald-600 border-emerald-100"
-            }`}>
-              <Cloud className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : 'text-emerald-500'}`} />
-              <span>{isSyncing ? "Syncing Workspace..." : "Cloud Backup Active"}</span>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-600 text-[10px] font-bold shadow-sm">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-500 font-bold" />
+              <span>Secured Local Vault</span>
             </div>
           </div>
         </div>
@@ -580,12 +574,12 @@ export const SafeTab: React.FC = () => {
             <div>
               <h3 className="font-bold text-slate-800 text-xs flex items-center justify-between uppercase tracking-wide">
                 <span className="flex items-center gap-1.5"><FileUp className="w-4 h-4 text-cyan-600" /> Private File Upload Cabinet</span>
-                <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${firebaseUser ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                  {firebaseUser ? "CLOUD SYNC ACTIVE" : "LOCAL STORAGE ONLY"}
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-slate-100 text-slate-500">
+                  LOCAL SECURE STORAGE ONLY
                 </span>
               </h3>
               <p className="text-[10px] text-slate-500 mt-1">
-                Upload receipts, certificates, or IDs. Files are securely encrypted and sync-stored directly via seamless cloud persistence, while local ledger descriptors map rapidly.
+                Upload receipts, certificates, or IDs. Files are securely encrypted and stored locally in your offline vault.
               </p>
             </div>
 
